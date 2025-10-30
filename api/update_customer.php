@@ -1,0 +1,48 @@
+<?php
+header('Content-Type: application/json; charset=utf-8');
+require_once '../config/database.php';
+
+$data = json_decode(file_get_contents('php://input'), true);
+$response = ['success' => false, 'message' => 'Invalid data or ID.'];
+
+if (isset($data['KhachHangID'])) {
+    $sql = "UPDATE khachhang SET 
+                TenCongTy = ?, NguoiLienHe = ?, SoDienThoai = ?, SoFax = ?, 
+                SoDiDong = ?, Email = ?, DiaChi = ?, MaSoThue = ?, CoCheGiaID = ?
+            WHERE KhachHangID = ?";
+    
+    $stmt = $conn->prepare($sql);
+    if ($stmt) {
+        $coCheGiaID = !empty($data['CoCheGiaID']) ? $data['CoCheGiaID'] : null;
+
+        $stmt->bind_param(
+            "ssssssssii",
+            $data['TenCongTy'],
+            $data['NguoiLienHe'],
+            $data['SoDienThoai'],
+            $data['SoFax'],
+            $data['SoDiDong'],
+            $data['Email'],
+            $data['DiaChi'],
+            $data['MaSoThue'],
+            $coCheGiaID,
+            $data['KhachHangID']
+        );
+
+        if ($stmt->execute()) {
+            $response['success'] = true;
+            $response['message'] = 'Customer updated successfully!';
+        } else {
+            http_response_code(500);
+            $response['message'] = 'Execute failed: ' . $stmt->error;
+        }
+        $stmt->close();
+    } else {
+        http_response_code(500);
+        $response['message'] = 'Prepare failed: ' . $conn->error;
+    }
+}
+
+$conn->close();
+echo json_encode($response, JSON_UNESCAPED_UNICODE);
+?>

@@ -167,9 +167,8 @@ try {
     
     // 5. Trừ tồn kho mạ điện phân
     $sql_update_inventory = "
-        UPDATE variant_inventory 
-        SET quantity = quantity - :soLuong,
-            updated_at = NOW()
+        UPDATE variant_inventory
+        SET quantity = quantity - :soLuong
         WHERE variant_id = :variantId
     ";
     

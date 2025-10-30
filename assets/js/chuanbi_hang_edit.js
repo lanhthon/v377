@@ -370,8 +370,9 @@ function renderDanhSachGiaCong(danhSachGiaCong) {
         const spDienPhan = item.san_pham_dien_phan;
         const soLuongXuat = item.so_luong_xuat_gia_cong;
         const soLuongThieu = item.so_luong_con_thieu;
-        
-        const hasEnoughDienPhan = soLuongXuat > 0;
+
+        // Chỉ đủ khi số lượng có thể xuất >= số lượng cần thiết
+        const hasEnoughDienPhan = soLuongXuat >= soLuongThieu;
         const statusClass = hasEnoughDienPhan ? 'text-green-600' : 'text-red-600';
         const statusIcon = hasEnoughDienPhan ? 'fa-check-circle' : 'fa-exclamation-triangle';
         

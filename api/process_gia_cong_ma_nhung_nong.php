@@ -60,9 +60,9 @@ try {
     
     // 1. Lấy thông tin sản phẩm mạ nhúng nóng
     $sql_get_item = "
-        SELECT ctcbh.*, v.sku, v.variant_name,
-            (SELECT ao.value 
-             FROM variant_attributes va 
+        SELECT ctcbh.*, v.variant_sku, v.variant_name,
+            (SELECT ao.value
+             FROM variant_attributes va
              JOIN attribute_options ao ON va.option_id = ao.option_id
              JOIN attributes a ON ao.attribute_id = a.attribute_id
              WHERE va.variant_id = v.variant_id AND a.name = 'Xử lý bề mặt'
@@ -88,17 +88,17 @@ try {
     $baseSku = getUlaBaseSku($itemNhungNong['MaHang']);
     
     $sql_find_dien_phan = "
-        SELECT v.variant_id, v.sku, v.variant_name, vi.quantity AS TonKho
+        SELECT v.variant_id, v.variant_sku, v.variant_name, vi.quantity AS TonKho
         FROM variants v
         LEFT JOIN variant_inventory vi ON v.variant_id = vi.variant_id
-        WHERE v.sku LIKE :baseSku
+        WHERE v.variant_sku LIKE :baseSku
         AND v.variant_id != :excludeId
         AND EXISTS (
-            SELECT 1 FROM variant_attributes va 
+            SELECT 1 FROM variant_attributes va
             JOIN attribute_options ao ON va.option_id = ao.option_id
             JOIN attributes a ON ao.attribute_id = a.attribute_id
-            WHERE va.variant_id = v.variant_id 
-            AND a.name = 'Xử lý bề mặt' 
+            WHERE va.variant_id = v.variant_id
+            AND a.name = 'Xử lý bề mặt'
             AND ao.value = 'Mạ điện phân'
         )
         LIMIT 1
@@ -151,7 +151,7 @@ try {
         ':cbhId' => $cbhId,
         ':chiTietCbhId' => $chiTietCbhId,
         ':sanPhamXuatId' => $itemDienPhan['variant_id'],
-        ':maSanPhamXuat' => $itemDienPhan['sku'],
+        ':maSanPhamXuat' => $itemDienPhan['variant_sku'],
         ':tenSanPhamXuat' => $itemDienPhan['variant_name'],
         ':sanPhamNhanId' => $itemNhungNong['SanPhamID'],
         ':maSanPhamNhan' => $itemNhungNong['MaHang'],
@@ -197,7 +197,7 @@ try {
         ':quantityBefore' => $tonKhoDienPhan,
         ':quantityAfter' => $tonKhoDienPhan - $soLuongXuat,
         ':referenceId' => $phieuXuatId,
-        ':notes' => "Xuất {$soLuongXuat} {$itemDienPhan['sku']} để gia công mạ nhúng nóng thành {$itemNhungNong['MaHang']}",
+        ':notes' => "Xuất {$soLuongXuat} {$itemDienPhan['variant_sku']} để gia công mạ nhúng nóng thành {$itemNhungNong['MaHang']}",
         ':createdBy' => $nguoiXuat
     ]);
     
@@ -205,7 +205,7 @@ try {
     $ghiChuMoi = sprintf(
         "[GC-MNN] Đã xuất %d %s đi gia công. Phiếu: %s",
         $soLuongXuat,
-        $itemDienPhan['sku'],
+        $itemDienPhan['variant_sku'],
         $maPhieuXuat
     );
     
@@ -235,7 +235,7 @@ try {
             'phieu_xuat_id' => $phieuXuatId,
             'san_pham_xuat' => [
                 'id' => $itemDienPhan['variant_id'],
-                'ma' => $itemDienPhan['sku'],
+                'ma' => $itemDienPhan['variant_sku'],
                 'ten' => $itemDienPhan['variant_name'],
                 'ton_kho_truoc' => $tonKhoDienPhan,
                 'ton_kho_sau' => $tonKhoDienPhan - $soLuongXuat

@@ -677,23 +677,33 @@ function showNotification(type, title, message) {
         warning: 'fa-exclamation-circle',
         info: 'fa-info-circle'
     };
-    
+
     const colorMap = {
         success: 'green',
         error: 'red',
         warning: 'yellow',
         info: 'blue'
     };
-    
+
     const icon = iconMap[type] || iconMap.info;
     const color = colorMap[type] || colorMap.info;
-    
+
     createModal('notification-modal', title, message, type, false);
-    
+
     $('#notification-modal-ok-btn').on('click', function() {
         $('#notification-modal').remove();
     });
 }
+
+// Export functions gia công ra global scope để có thể gọi từ HTML onclick
+window.xuatKhoGiaCong = xuatKhoGiaCong;
+window.closeXuatGiaCongModal = closeXuatGiaCongModal;
+window.confirmXuatGiaCong = confirmXuatGiaCong;
+window.xuatTatCaGiaCong = xuatTatCaGiaCong;
+window.showNotification = showNotification;
+window.initGiaCongMaNhungNong = initGiaCongMaNhungNong;
+window.renderDanhSachGiaCong = renderDanhSachGiaCong;
+
 /// hết gia công nhúng nóng
 
 

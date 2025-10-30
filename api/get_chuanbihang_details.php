@@ -261,6 +261,34 @@ try {
             ]);
             $spDienPhan = $stmt_find_mdp->fetch(PDO::FETCH_ASSOC);
 
+            // --- FALLBACK: Nếu không tìm thấy bằng thuộc tính, thử tìm bằng SKU ---
+            if (!$spDienPhan) {
+                // Loại bỏ hậu tố từ SKU của MNN
+                $mnnSku = $itemULA['MaHang'];
+                $baseSku = preg_replace('/-(HDG|MNN|PVC|CP)$/i', '', $mnnSku);
+
+                $sql_find_by_sku = "
+                    SELECT v.variant_id, v.variant_sku, vi.quantity AS TonKhoVatLy
+                    FROM variants v
+                    LEFT JOIN variant_inventory vi ON v.variant_id = vi.variant_id
+                    WHERE v.variant_sku = :baseSku
+                    AND EXISTS (
+                        SELECT 1 FROM variant_attributes va
+                        JOIN attribute_options ao ON va.option_id = ao.option_id
+                        JOIN attributes a ON ao.attribute_id = a.attribute_id
+                        WHERE va.variant_id = v.variant_id
+                        AND a.name = 'Xử lý bề mặt'
+                        AND ao.value = 'Mạ điện phân'
+                    )
+                    LIMIT 1
+                ";
+
+                $stmt_sku_search = $pdo->prepare($sql_find_by_sku);
+                $stmt_sku_search->execute([':baseSku' => $baseSku]);
+                $spDienPhan = $stmt_sku_search->fetch(PDO::FETCH_ASSOC);
+            }
+            // --- KẾT THÚC FALLBACK ---
+
             $spDienPhanData = null;
             $soLuongCoTheXuat = 0;
             $ghiChu = "Không tìm thấy SP MĐP tương ứng."; // Mặc định

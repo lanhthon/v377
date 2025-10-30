@@ -311,14 +311,14 @@ function initGiaCongMaNhungNong(cbhId) {
  */
 function renderDanhSachGiaCong(danhSachGiaCong) {
     danhSachGiaCongData = danhSachGiaCong;
-    
+
     if (!danhSachGiaCong || danhSachGiaCong.length === 0) {
         $('#gia-cong-section').hide();
         return;
     }
-    
+
     console.log('[GIA_CONG] Có', danhSachGiaCong.length, 'sản phẩm cần gia công');
-    
+
     let html = `
         <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
             <div class="flex items-center justify-between mb-4">
@@ -330,7 +330,7 @@ function renderDanhSachGiaCong(danhSachGiaCong) {
                     ${danhSachGiaCong.length} sản phẩm
                 </span>
             </div>
-            
+
             <div class="bg-blue-50 border-l-4 border-blue-400 p-4 mb-4">
                 <div class="flex">
                     <div class="flex-shrink-0">
@@ -338,8 +338,11 @@ function renderDanhSachGiaCong(danhSachGiaCong) {
                     </div>
                     <div class="ml-3">
                         <p class="text-sm text-blue-700">
-                            <strong>Lưu ý:</strong> Hệ thống tự động tìm sản phẩm ULA mạ điện phân tương ứng để xuất kho gia công. 
-                            Sau khi gia công xong, sản phẩm sẽ được nhập vào kho với tình trạng mạ nhúng nóng.
+                            <strong>Quy trình:</strong> Hệ thống tự động tìm sản phẩm ULA mạ điện phân tương ứng.
+                            <br/>
+                            • Nếu <strong>ĐỦ</strong> mạ điện phân → Xuất kho gia công ngay
+                            <br/>
+                            • Nếu <strong>THIẾU</strong> mạ điện phân → Tạo yêu cầu sản xuất ULA mạ điện phân trước
                         </p>
                     </div>
                 </div>
@@ -367,8 +370,9 @@ function renderDanhSachGiaCong(danhSachGiaCong) {
         const spDienPhan = item.san_pham_dien_phan;
         const soLuongXuat = item.so_luong_xuat_gia_cong;
         const soLuongThieu = item.so_luong_con_thieu;
-        
-        const hasEnoughDienPhan = soLuongXuat > 0;
+
+        // Chỉ đủ khi số lượng có thể xuất >= số lượng cần thiết
+        const hasEnoughDienPhan = soLuongXuat >= soLuongThieu;
         const statusClass = hasEnoughDienPhan ? 'text-green-600' : 'text-red-600';
         const statusIcon = hasEnoughDienPhan ? 'fa-check-circle' : 'fa-exclamation-triangle';
         
@@ -422,15 +426,22 @@ function renderDanhSachGiaCong(danhSachGiaCong) {
                 <!-- Thao tác -->
                 <td class="px-3 py-4 text-center">
                     ${hasEnoughDienPhan ? `
-                        <button 
+                        <button
                             onclick="xuatKhoGiaCong(${index})"
                             class="px-3 py-1 bg-orange-500 text-white text-xs rounded hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500">
                             <i class="fas fa-external-link-alt mr-1"></i>
                             Xuất gia công
                         </button>
+                    ` : (spDienPhan ? `
+                        <button
+                            onclick="yeuCauSanXuatUlaMdp(${index})"
+                            class="px-3 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <i class="fas fa-industry mr-1"></i>
+                            SX ULA MĐP
+                        </button>
                     ` : `
-                        <span class="text-xs text-gray-400">Không đủ hàng</span>
-                    `}
+                        <span class="text-xs text-red-500">Không tìm thấy MĐP</span>
+                    `)}
                 </td>
             </tr>
         `;
@@ -461,9 +472,14 @@ function renderDanhSachGiaCong(danhSachGiaCong) {
  */
 function xuatKhoGiaCong(index) {
     const item = danhSachGiaCongData[index];
-    
+
     if (!item || item.so_luong_xuat_gia_cong <= 0) {
         showNotification('error', 'Không thể xuất gia công', 'Không đủ hàng mạ điện phân');
+        return;
+    }
+
+    if (!item.san_pham_dien_phan || !item.san_pham_dien_phan.variant_id) {
+        showNotification('error', 'Lỗi', 'Không tìm thấy thông tin sản phẩm mạ điện phân');
         return;
     }
     
@@ -565,6 +581,7 @@ function confirmXuatGiaCong(index) {
     const requestData = {
         cbh_id: currentCbhId,
         chi_tiet_cbh_id: item.san_pham_nhung_nong.ChiTietCBH_ID,
+        variant_id_dien_phan: item.san_pham_dien_phan.variant_id,
         so_luong_xuat: soLuongXuat,
         nguoi_xuat: currentUser || 'Hệ thống',
         ghi_chu: ghiChu || `Xuất gia công mạ nhúng nóng từ CBH-${currentCbhId}`
@@ -624,6 +641,7 @@ function xuatTatCaGiaCong() {
         const requestData = {
             cbh_id: currentCbhId,
             chi_tiet_cbh_id: item.san_pham_nhung_nong.ChiTietCBH_ID,
+            variant_id_dien_phan: item.san_pham_dien_phan.variant_id,
             so_luong_xuat: item.so_luong_xuat_gia_cong,
             nguoi_xuat: currentUser || 'Hệ thống',
             ghi_chu: `Xuất gia công hàng loạt từ CBH-${currentCbhId}`
@@ -677,23 +695,199 @@ function showNotification(type, title, message) {
         warning: 'fa-exclamation-circle',
         info: 'fa-info-circle'
     };
-    
+
     const colorMap = {
         success: 'green',
         error: 'red',
         warning: 'yellow',
         info: 'blue'
     };
-    
+
     const icon = iconMap[type] || iconMap.info;
     const color = colorMap[type] || colorMap.info;
-    
+
     createModal('notification-modal', title, message, type, false);
-    
+
     $('#notification-modal-ok-btn').on('click', function() {
         $('#notification-modal').remove();
     });
 }
+
+/**
+ * Yêu cầu sản xuất ULA mạ điện phân (khi tồn kho không đủ)
+ */
+function yeuCauSanXuatUlaMdp(index) {
+    const item = danhSachGiaCongData[index];
+
+    if (!item || !item.san_pham_dien_phan) {
+        showNotification('error', 'Lỗi', 'Không tìm thấy thông tin sản phẩm mạ điện phân');
+        return;
+    }
+
+    const spDienPhan = item.san_pham_dien_phan;
+    const spNhungNong = item.san_pham_nhung_nong;
+
+    // Tạo modal xác nhận
+    const modalHtml = `
+        <div id="yeu-cau-sx-modal" class="fixed inset-0 z-50 overflow-y-auto" style="background-color: rgba(0, 0, 0, 0.5);">
+            <div class="flex items-center justify-center min-h-screen p-4">
+                <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full p-6">
+                    <h3 class="text-xl font-bold text-gray-800 mb-4">
+                        <i class="fas fa-industry text-orange-500 mr-2"></i>
+                        Yêu Cầu Sản Xuất ULA Mạ Điện Phân
+                    </h3>
+
+                    <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4">
+                        <div class="flex">
+                            <div class="flex-shrink-0">
+                                <i class="fas fa-exclamation-triangle text-yellow-400"></i>
+                            </div>
+                            <div class="ml-3">
+                                <p class="text-sm text-yellow-700">
+                                    <strong>Lưu ý:</strong> Tồn kho mạ điện phân không đủ để gia công.
+                                    <br/>Cần tạo yêu cầu sản xuất ULA mạ điện phân trước khi gia công.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="space-y-4 mb-6">
+                        <div class="border-b pb-3">
+                            <h4 class="font-semibold text-gray-700 mb-2">Sản phẩm cần gia công (MNN):</h4>
+                            <div class="pl-4 text-sm">
+                                <p><strong>Mã:</strong> ${spNhungNong.VariantSKU}</p>
+                                <p><strong>Tên:</strong> ${spNhungNong.VariantName}</p>
+                                <p class="text-red-600"><strong>Số lượng cần:</strong> ${item.so_luong_xuat_gia_cong}</p>
+                            </div>
+                        </div>
+
+                        <div class="border-b pb-3">
+                            <h4 class="font-semibold text-gray-700 mb-2">Sản phẩm cần sản xuất (MĐP):</h4>
+                            <div class="pl-4 text-sm">
+                                <p><strong>Mã:</strong> ${spDienPhan.VariantSKU}</p>
+                                <p><strong>Tên:</strong> ${spDienPhan.VariantName}</p>
+                                <p><strong>Tồn kho hiện tại:</strong> <span class="text-red-600">${spDienPhan.SoLuongTon} (thiếu ${item.so_luong_xuat_gia_cong - spDienPhan.SoLuongTon})</span></p>
+                                <p class="text-blue-600"><strong>Số lượng yêu cầu SX:</strong> ${item.so_luong_xuat_gia_cong}</p>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Ghi chú yêu cầu:</label>
+                            <textarea
+                                id="ghi-chu-yeu-cau-sx"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                rows="3"
+                                placeholder="Ghi chú về yêu cầu sản xuất..."
+                            >Yêu cầu SX ULA MĐP phục vụ gia công mạ nhúng nóng cho CBH-${currentCbhId}</textarea>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-end space-x-3">
+                        <button
+                            onclick="closeYeuCauSxModal()"
+                            class="px-4 py-2 bg-gray-300 text-gray-800 rounded-md hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-400">
+                            Hủy
+                        </button>
+                        <button
+                            onclick="confirmYeuCauSxUlaMdp(${index})"
+                            class="px-4 py-2 bg-orange-600 text-white rounded-md hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-orange-500">
+                            <i class="fas fa-check mr-2"></i>
+                            Tạo yêu cầu SX
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    $('body').append(modalHtml);
+}
+
+/**
+ * Đóng modal yêu cầu sản xuất
+ */
+function closeYeuCauSxModal() {
+    $('#yeu-cau-sx-modal').remove();
+}
+
+/**
+ * Xác nhận yêu cầu sản xuất ULA mạ điện phân
+ */
+function confirmYeuCauSxUlaMdp(index) {
+    const item = danhSachGiaCongData[index];
+    const ghiChu = $('#ghi-chu-yeu-cau-sx').val().trim();
+
+    // Hiển thị loading
+    const btn = event.target;
+    const originalHtml = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Đang xử lý...';
+    btn.disabled = true;
+
+    const requestData = {
+        cbh_id: currentCbhId,
+        chi_tiet_cbh_id: item.san_pham_nhung_nong.ChiTietCBH_ID,
+        variant_id_mdp: item.san_pham_dien_phan.VariantID,
+        so_luong: item.so_luong_xuat_gia_cong,
+        nguoi_tao: currentUser || 'Hệ thống',
+        ghi_chu: ghiChu || `Yêu cầu SX ULA MĐP phục vụ gia công MNN cho CBH-${currentCbhId}`
+    };
+
+    $.ajax({
+        url: 'api/create_production_request_ula_mdp.php',
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify(requestData),
+        success: function(response) {
+            if (response.success) {
+                showNotification(
+                    'success',
+                    'Thành công',
+                    `Đã tạo yêu cầu sản xuất: ${response.so_lenh_sx || 'N/A'}`
+                );
+                closeYeuCauSxModal();
+
+                // Reload trang để cập nhật dữ liệu
+                setTimeout(() => {
+                    location.reload();
+                }, 2000);
+            } else {
+                showNotification('error', 'Lỗi', response.message || 'Không thể tạo yêu cầu sản xuất');
+                btn.innerHTML = originalHtml;
+                btn.disabled = false;
+            }
+        },
+        error: function(xhr) {
+            console.error('Error creating production request:', xhr);
+            let errorMsg = 'Lỗi kết nối đến máy chủ';
+
+            try {
+                const response = JSON.parse(xhr.responseText);
+                if (response.message) {
+                    errorMsg = response.message;
+                }
+            } catch (e) {
+                // Keep default error message
+            }
+
+            showNotification('error', 'Lỗi', errorMsg);
+            btn.innerHTML = originalHtml;
+            btn.disabled = false;
+        }
+    });
+}
+
+// Export functions gia công ra global scope để có thể gọi từ HTML onclick
+window.xuatKhoGiaCong = xuatKhoGiaCong;
+window.closeXuatGiaCongModal = closeXuatGiaCongModal;
+window.confirmXuatGiaCong = confirmXuatGiaCong;
+window.xuatTatCaGiaCong = xuatTatCaGiaCong;
+window.showNotification = showNotification;
+window.initGiaCongMaNhungNong = initGiaCongMaNhungNong;
+window.renderDanhSachGiaCong = renderDanhSachGiaCong;
+window.yeuCauSanXuatUlaMdp = yeuCauSanXuatUlaMdp;
+window.closeYeuCauSxModal = closeYeuCauSxModal;
+window.confirmYeuCauSxUlaMdp = confirmYeuCauSxUlaMdp;
+
 /// hết gia công nhúng nóng
 
 

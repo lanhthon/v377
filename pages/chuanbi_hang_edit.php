@@ -260,7 +260,9 @@
             <h2 class="text-center text-2xl font-bold mt-4">YCSX - PHIẾU CHUẨN BỊ HÀNG</h2>
         </header>
         <main class="mt-4 space-y-6">
-            <div id="gia-cong-section">
+            <!-- Section gia công mạ nhúng nóng (sẽ được render bằng JavaScript) -->
+            <div id="gia-cong-section" style="display:none;"></div>
+
             <table class="w-full info-table">
                 <tr>
                     <td class="label w-1/6">Bộ phận</td>

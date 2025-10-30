@@ -1,0 +1,31 @@
+<?php
+// File: api/get_issued_slips_btp.php
+require_once '../config/db_config.php';
+header('Content-Type: application/json; charset=utf-8');
+
+$response = ['success' => false, 'data' => []];
+
+try {
+    $pdo = get_db_connection();
+    $sql = "SELECT 
+                pxk.PhieuXuatKhoID,
+                pxk.SoPhieuXuat,
+                pxk.NgayXuat,
+                pxk.GhiChu,
+                dh.SoYCSX,
+                nd.HoTen AS NguoiTao
+            FROM phieuxuatkho pxk
+            JOIN donhang dh ON pxk.YCSX_ID = dh.YCSX_ID
+            JOIN nguoidung nd ON pxk.NguoiTaoID = nd.UserID
+            WHERE pxk.LoaiPhieu = 'xuat_btp_cat'
+            ORDER BY pxk.PhieuXuatKhoID DESC";
+            
+    $stmt = $pdo->query($sql);
+    $response['data'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $response['success'] = true;
+} catch (Exception $e) {
+    $response['message'] = $e->getMessage();
+}
+
+echo json_encode($response, JSON_UNESCAPED_UNICODE);
+?>

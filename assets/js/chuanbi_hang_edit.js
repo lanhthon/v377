@@ -471,9 +471,14 @@ function renderDanhSachGiaCong(danhSachGiaCong) {
  */
 function xuatKhoGiaCong(index) {
     const item = danhSachGiaCongData[index];
-    
+
     if (!item || item.so_luong_xuat_gia_cong <= 0) {
         showNotification('error', 'Không thể xuất gia công', 'Không đủ hàng mạ điện phân');
+        return;
+    }
+
+    if (!item.san_pham_dien_phan || !item.san_pham_dien_phan.variant_id) {
+        showNotification('error', 'Lỗi', 'Không tìm thấy thông tin sản phẩm mạ điện phân');
         return;
     }
     
@@ -575,6 +580,7 @@ function confirmXuatGiaCong(index) {
     const requestData = {
         cbh_id: currentCbhId,
         chi_tiet_cbh_id: item.san_pham_nhung_nong.ChiTietCBH_ID,
+        variant_id_dien_phan: item.san_pham_dien_phan.variant_id,
         so_luong_xuat: soLuongXuat,
         nguoi_xuat: currentUser || 'Hệ thống',
         ghi_chu: ghiChu || `Xuất gia công mạ nhúng nóng từ CBH-${currentCbhId}`
@@ -634,6 +640,7 @@ function xuatTatCaGiaCong() {
         const requestData = {
             cbh_id: currentCbhId,
             chi_tiet_cbh_id: item.san_pham_nhung_nong.ChiTietCBH_ID,
+            variant_id_dien_phan: item.san_pham_dien_phan.variant_id,
             so_luong_xuat: item.so_luong_xuat_gia_cong,
             nguoi_xuat: currentUser || 'Hệ thống',
             ghi_chu: `Xuất gia công hàng loạt từ CBH-${currentCbhId}`

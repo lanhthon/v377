@@ -16,25 +16,15 @@ error_reporting(E_ALL);
 header('Content-Type: application/json; charset=utf-8');
 require_once '../config/db_config.php';
 
-/**
- * Lấy mã ULA cơ bản (không bao gồm hậu tố)
- */
-function getUlaBaseSku($maHang) {
-    $maHang = trim($maHang);
-    if (preg_match('/^(ULA\s+\d+(?:\/\d+)?x\d+(?:x[A-Z]\d+)?(?:-[A-Z]\d+)?(?:-[A-Z]+)?)/', $maHang, $matches)) {
-        return $matches[1];
-    }
-    return $maHang;
-}
-
 // Nhận dữ liệu từ request
 $input = json_decode(file_get_contents('php://input'), true);
 
-if (!$input || !isset($input['cbh_id']) || !isset($input['chi_tiet_cbh_id']) || !isset($input['so_luong_xuat'])) {
+if (!$input || !isset($input['cbh_id']) || !isset($input['chi_tiet_cbh_id'])
+    || !isset($input['so_luong_xuat']) || !isset($input['variant_id_dien_phan'])) {
     http_response_code(400);
     echo json_encode([
-        'success' => false, 
-        'message' => 'Thiếu thông tin: cbh_id, chi_tiet_cbh_id, so_luong_xuat'
+        'success' => false,
+        'message' => 'Thiếu thông tin: cbh_id, chi_tiet_cbh_id, so_luong_xuat, variant_id_dien_phan'
     ]);
     exit;
 }
@@ -42,14 +32,24 @@ if (!$input || !isset($input['cbh_id']) || !isset($input['chi_tiet_cbh_id']) || 
 $cbhId = intval($input['cbh_id']);
 $chiTietCbhId = intval($input['chi_tiet_cbh_id']);
 $soLuongXuat = intval($input['so_luong_xuat']);
+$variantIdDienPhan = intval($input['variant_id_dien_phan']);
 $nguoiXuat = $input['nguoi_xuat'] ?? 'Hệ thống';
 $ghiChu = $input['ghi_chu'] ?? '';
 
 if ($soLuongXuat <= 0) {
     http_response_code(400);
     echo json_encode([
-        'success' => false, 
+        'success' => false,
         'message' => 'Số lượng xuất phải lớn hơn 0'
+    ]);
+    exit;
+}
+
+if ($variantIdDienPhan <= 0) {
+    http_response_code(400);
+    echo json_encode([
+        'success' => false,
+        'message' => 'variant_id_dien_phan không hợp lệ'
     ]);
     exit;
 }
@@ -83,36 +83,38 @@ try {
     if ($itemNhungNong['xu_ly_be_mat'] !== 'Mạ nhúng nóng') {
         throw new Exception('Sản phẩm này không phải loại mạ nhúng nóng');
     }
-    
-    // 2. Tìm sản phẩm ULA mạ điện phân tương ứng
-    $baseSku = getUlaBaseSku($itemNhungNong['MaHang']);
-    
-    $sql_find_dien_phan = "
+
+    // 2. Lấy thông tin sản phẩm ULA mạ điện phân từ variant_id
+    $sql_get_dien_phan = "
         SELECT v.variant_id, v.variant_sku, v.variant_name, vi.quantity AS TonKho
         FROM variants v
         LEFT JOIN variant_inventory vi ON v.variant_id = vi.variant_id
-        WHERE v.variant_sku LIKE :baseSku
-        AND v.variant_id != :excludeId
-        AND EXISTS (
-            SELECT 1 FROM variant_attributes va
-            JOIN attribute_options ao ON va.option_id = ao.option_id
-            JOIN attributes a ON ao.attribute_id = a.attribute_id
-            WHERE va.variant_id = v.variant_id
-            AND a.name = 'Xử lý bề mặt'
-            AND ao.value = 'Mạ điện phân'
-        )
+        WHERE v.variant_id = :variantId
+    ";
+
+    $stmt = $pdo->prepare($sql_get_dien_phan);
+    $stmt->execute([':variantId' => $variantIdDienPhan]);
+    $itemDienPhan = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$itemDienPhan) {
+        throw new Exception('Không tìm thấy sản phẩm ULA mạ điện phân (ID: ' . $variantIdDienPhan . ')');
+    }
+
+    // Kiểm tra sản phẩm có phải là mạ điện phân không
+    $sql_check_xlbm = "
+        SELECT ao.value
+        FROM variant_attributes va
+        JOIN attribute_options ao ON va.option_id = ao.option_id
+        JOIN attributes a ON ao.attribute_id = a.attribute_id
+        WHERE va.variant_id = :variantId AND a.name = 'Xử lý bề mặt'
         LIMIT 1
     ";
-    
-    $stmt = $pdo->prepare($sql_find_dien_phan);
-    $stmt->execute([
-        ':baseSku' => $baseSku . '%',
-        ':excludeId' => $itemNhungNong['SanPhamID']
-    ]);
-    $itemDienPhan = $stmt->fetch(PDO::FETCH_ASSOC);
-    
-    if (!$itemDienPhan) {
-        throw new Exception('Không tìm thấy sản phẩm ULA mạ điện phân tương ứng: ' . $baseSku);
+    $stmt = $pdo->prepare($sql_check_xlbm);
+    $stmt->execute([':variantId' => $variantIdDienPhan]);
+    $xuLyBeMat = $stmt->fetchColumn();
+
+    if ($xuLyBeMat !== 'Mạ điện phân') {
+        throw new Exception('Sản phẩm được chọn không phải loại mạ điện phân: ' . ($xuLyBeMat ?: 'N/A'));
     }
     
     // 3. Kiểm tra tồn kho mạ điện phân
